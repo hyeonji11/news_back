@@ -12,12 +12,14 @@ public class UserTokenHelper {
     private final JwtProvider jwtProvider;
     private final RedisService redisService;
 
+    private final Long refreshTokenValidityInMilliseconds = 7 * 24 * 60 * 60 * 1000L; // 7일
+
     public JwtResponseDto generateAndStoreToken(String provider, String email, String role) {
         String redisKey = "RT(" + provider + "):" + email;
         redisService.deleteValues(redisKey);
 
         JwtResponseDto tokenDto = jwtProvider.createToken(email, role);
-        redisService.setValuesWithTimeout(redisKey, tokenDto.getRefreshToken(), jwtProvider.getTokenExpirationTime(tokenDto.getRefreshToken()));
+        redisService.setValuesWithTimeout(redisKey, tokenDto.getRefreshToken(), refreshTokenValidityInMilliseconds);
         return tokenDto;
     }
 }

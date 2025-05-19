@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -72,13 +73,7 @@ public class JwtProvider implements InitializingBean {
                 .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
 
-        String refreshToken = Jwts.builder()
-                .setHeaderParam("typ", "JWT")
-                .setHeaderParam("alg", "HS512")
-                .setExpiration(new Date(now + refreshTokenValidityInMilliseconds))
-                .setSubject("refresh-token")
-                .signWith(signingKey, SignatureAlgorithm.HS512)
-                .compact();
+        String refreshToken = UUID.randomUUID().toString();
 
         return JwtResponseDto.builder()
                 .accessToken(accessToken)
@@ -133,30 +128,11 @@ public class JwtProvider implements InitializingBean {
      * @return boolean 유효한 경우 true, 그렇지 않으면 false
      */
     public boolean validateRefreshToken(String refreshToken) {
-        try {
-            String redisValue = redisService.getValues(refreshToken);
-            if ("delete".equals(redisValue)) { // 회원 탈퇴 여부 확인
-                return false;
-            }
-            Jwts.parserBuilder()
-                    .setSigningKey(signingKey)
-                    .build()
-                    .parseClaimsJws(refreshToken);
-            return true;
-        } catch (SignatureException e) {
-            log.error("Invalid JWT signature.");
-        } catch (MalformedJwtException e) {
-            log.error("Invalid JWT token.");
-        } catch (ExpiredJwtException e) {
-            log.error("Expired JWT token.");
-        } catch (UnsupportedJwtException e) {
-            log.error("Unsupported JWT token.");
-        } catch (IllegalArgumentException e) {
-            log.error("JWT claims string is empty.");
-        } catch (NullPointerException e) {
-            log.error("JWT Token is empty.");
+        String redisValue = redisService.getValues(refreshToken);
+        if ("delete".equals(redisValue)) { // 회원 탈퇴 여부 확인
+            return false;
         }
-        return false;
+        return true;
     }
 
     /**
@@ -181,6 +157,7 @@ public class JwtProvider implements InitializingBean {
      */
     public void validateAccessToken(String accessToken) throws JwtAuthenticationException {
         try {
+            log.info("Validating access token:{}", accessToken);
             if (redisService.getValues(accessToken) != null // NPE 방지
                     && redisService.getValues(accessToken).equals("logout")) { // 로그아웃 했을 경우
                 throw new JwtAuthenticationException("로그아웃된 토큰입니다.");

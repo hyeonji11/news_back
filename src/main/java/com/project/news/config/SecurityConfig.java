@@ -40,6 +40,7 @@ public class SecurityConfig {
             "/api/global/**",
             "/api/auth/signin",
             "/api/auth/signup",
+            "/api/auth/reissue",
             "/images/**",
             "/oauth2/**",
             "/login/oauth2/**",

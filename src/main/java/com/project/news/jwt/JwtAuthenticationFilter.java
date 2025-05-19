@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/global/**",
             "/api/auth/signin",
             "/api/auth/signup",
+            "/api/auth/reissue",
             "/images/**"
     );
 

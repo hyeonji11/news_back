@@ -6,8 +6,10 @@ import com.project.news.jwt.JwtProvider;
 import com.project.news.jwt.dto.JwtResponseDto;
 import com.project.news.oauth2.client.KakaoClient;
 import com.project.news.oauth2.dto.KakaoIdResponse;
+import com.project.news.oauth2.service.UserTokenHelper;
 import com.project.news.user.dto.LoginRequestDto;
 import com.project.news.user.dto.SignupRequestDto;
+import com.project.news.user.dto.TokenRefreshRequestDto;
 import com.project.news.user.entity.User;
 import com.project.news.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +27,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Date;
 import java.util.Optional;
@@ -43,6 +46,7 @@ public class UserService {
     private final RedisService redisService;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final KakaoClient kakaoClient;
+    private final UserTokenHelper userTokenHelper;
 
     private final String SERVER = "Server";
 
@@ -67,7 +71,7 @@ public class UserService {
             String authorities = extractAuthorities(authentication);
 
             // 토큰 생성 및 저장
-            return generateAndStoreToken(SERVER, email, authorities);
+            return userTokenHelper.generateAndStoreToken(SERVER, email, authorities);
         } catch (BadCredentialsException e) {
             e.printStackTrace();
             throw new BadCredentialsException("사용자 정보가 잘못 되었습니다.");
@@ -132,28 +136,6 @@ public class UserService {
     }
 
     /**
-     * JWT 토큰을 생성하고 리프레시 토큰을 Redis에 저장합니다.
-     * 기존에 Redis에 리프레시 토큰이 있을 경우 삭제 후 새로운 토큰을 저장합니다.
-     *
-     * @param provider 서비스 제공자 정보 (예: "SERVER")
-     * @param email 사용자 이메일
-     * @param authorities 사용자의 권한 목록을 콤마로 연결한 문자열
-     * @return 생성된 JWT 정보 (액세스 토큰 및 리프레시 토큰 포함)
-     */
-    public JwtResponseDto generateAndStoreToken(String provider, String email, String authorities) {
-        String redisKey = "RT(" + provider + "):" + email;
-
-        // Redis에 기존 RT가 있으면 삭제
-        Optional.ofNullable(redisService.getValues(redisKey)).ifPresent(rt -> redisService.deleteValues(redisKey));
-
-        // 새로운 토큰 생성 및 Redis에 저장
-        JwtResponseDto tokenDto = jwtProvider.createToken(email, authorities);
-        redisService.setValuesWithTimeout(redisKey, tokenDto.getRefreshToken(), jwtProvider.getTokenExpirationTime(tokenDto.getRefreshToken()));
-
-        return tokenDto;
-    }
-
-    /**
      * Authentication 객체에서 사용자의 권한 목록을 추출하여 콤마로 구분된 문자열로 반환합니다.
      *
      * @param authentication 사용자 인증 정보가 담긴 Authentication 객체
@@ -201,6 +183,20 @@ public class UserService {
         KakaoIdResponse kakaoIdResponse = kakaoClient.unlink("Bearer " + accessToken);
         log.info("카카오 연결 끊기 성공 : ", kakaoIdResponse.id());
 
+    }
+
+    public JwtResponseDto reissueToken(TokenRefreshRequestDto request) throws Exception {
+        jwtProvider.validateRefreshToken(request.refreshToken());
+        String email = jwtProvider.getClaims(request.accessToken()).get("email").toString();
+        String redisRefreshToken = redisService.getValues("RT("+SERVER+"):"+email);
+
+        if (StringUtils.hasText(redisRefreshToken) && request.refreshToken().equals(redisRefreshToken)) {
+            Authentication authentication = jwtProvider.getAuthentication(request.accessToken());
+            String authorities = extractAuthorities(authentication);
+            JwtResponseDto responseDto = userTokenHelper.generateAndStoreToken(SERVER, email, authorities);
+
+            return responseDto;
+        } else throw new Exception("Refresh Token Not Found");
     }
 
 }
