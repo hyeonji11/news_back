@@ -1,8 +1,8 @@
 package com.project.news.config;
 
-import com.project.news.jwt.JwtAccessDeniedHandler;
+import com.project.news.jwt.handler.JwtAccessDeniedHandler;
 import com.project.news.jwt.JwtAuthenticationFilter;
-import com.project.news.jwt.JwtExceptionHandler;
+import com.project.news.jwt.handler.JwtExceptionHandler;
 import com.project.news.jwt.JwtProvider;
 import com.project.news.oauth2.handler.CustomFailHandler;
 import com.project.news.oauth2.handler.CustomSuccessHandler;

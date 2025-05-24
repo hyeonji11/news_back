@@ -3,6 +3,7 @@ package com.project.news.oauth2.handler;
 import com.project.news.common.exception.ConflictException;
 import com.project.news.common.util.CookieUtil;
 import com.project.news.jwt.dto.JwtResponseDto;
+import com.project.news.oauth2.Entity.TokenProvider;
 import com.project.news.oauth2.dto.CustomOAuthUser;
 import com.project.news.oauth2.service.UserTokenHelper;
 import jakarta.servlet.ServletException;
@@ -27,7 +28,6 @@ import java.util.Iterator;
 public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final UserTokenHelper userTokenHelper;
-    private final String SERVER = "Server";
 
     @Value("${service.url.client}")
     String clientIp;
@@ -43,7 +43,7 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             String role = auth.getAuthority();
 
             // 토근 발급 및 Redis에 RefreshToken 저장
-            JwtResponseDto token = userTokenHelper.generateAndStoreToken(SERVER, customUserDetails.getEmail(), role);
+            JwtResponseDto token = userTokenHelper.generateAndStoreToken(TokenProvider.SERVER, customUserDetails.getEmail(), role);
 
             log.info("accesstoken: {}", token.getAccessToken());
             response.addCookie(CookieUtil.createCookie("accessToken", token.getAccessToken(), 24 * 60 * 60));

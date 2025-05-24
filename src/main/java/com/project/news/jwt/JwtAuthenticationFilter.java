@@ -1,6 +1,7 @@
 package com.project.news.jwt;
 
 import com.project.news.common.exception.JwtAuthenticationException;
+import com.project.news.jwt.handler.JwtExceptionHandler;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

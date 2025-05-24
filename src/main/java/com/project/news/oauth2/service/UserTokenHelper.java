@@ -1,8 +1,11 @@
 package com.project.news.oauth2.service;
 
 import com.project.news.common.service.RedisService;
+import com.project.news.common.util.RedisKeyUtil;
 import com.project.news.jwt.JwtProvider;
 import com.project.news.jwt.dto.JwtResponseDto;
+import com.project.news.oauth2.Entity.TokenProvider;
+import com.project.news.oauth2.Entity.TokenType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -14,8 +17,8 @@ public class UserTokenHelper {
 
     private final Long refreshTokenValidityInMilliseconds = 7 * 24 * 60 * 60 * 1000L; // 7일
 
-    public JwtResponseDto generateAndStoreToken(String provider, String email, String role) {
-        String redisKey = "RT(" + provider + "):" + email;
+    public JwtResponseDto generateAndStoreToken(TokenProvider provider, String email, String role) {
+        String redisKey = RedisKeyUtil.generateTokenKey(TokenType.RT, provider, email);;
         redisService.deleteValues(redisKey);
 
         JwtResponseDto tokenDto = jwtProvider.createToken(email, role);

@@ -1,4 +1,4 @@
-package com.project.news.jwt;
+package com.project.news.jwt.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.news.common.entity.Response;

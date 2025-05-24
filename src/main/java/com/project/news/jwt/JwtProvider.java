@@ -2,6 +2,7 @@ package com.project.news.jwt;
 
 import com.project.news.common.exception.JwtAuthenticationException;
 import com.project.news.common.service.RedisService;
+import com.project.news.common.util.UUIDUtil;
 import com.project.news.jwt.dto.JwtResponseDto;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
@@ -47,7 +48,7 @@ public class JwtProvider implements InitializingBean {
 
     // 시크릿 키 설정
     @Override
-    public void afterPropertiesSet() throws Exception {
+    public void afterPropertiesSet() {
         byte[] secretKeyBytes = Decoders.BASE64.decode(secretKey);
         signingKey = Keys.hmacShaKeyFor(secretKeyBytes);
     }
@@ -73,7 +74,7 @@ public class JwtProvider implements InitializingBean {
                 .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
 
-        String refreshToken = UUID.randomUUID().toString();
+        String refreshToken = UUIDUtil.getUUID();
 
         return JwtResponseDto.builder()
                 .accessToken(accessToken)

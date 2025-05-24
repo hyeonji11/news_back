@@ -2,8 +2,11 @@ package com.project.news.user.service;
 
 import com.project.news.common.entity.Response;
 import com.project.news.common.service.RedisService;
+import com.project.news.common.util.RedisKeyUtil;
 import com.project.news.jwt.JwtProvider;
 import com.project.news.jwt.dto.JwtResponseDto;
+import com.project.news.oauth2.Entity.TokenProvider;
+import com.project.news.oauth2.Entity.TokenType;
 import com.project.news.oauth2.client.KakaoClient;
 import com.project.news.oauth2.dto.KakaoIdResponse;
 import com.project.news.oauth2.service.UserTokenHelper;
@@ -48,8 +51,6 @@ public class UserService {
     private final KakaoClient kakaoClient;
     private final UserTokenHelper userTokenHelper;
 
-    private final String SERVER = "Server";
-
     @Transactional
     public Long signup(SignupRequestDto requestDto) {
         userRepository.findByEmail(requestDto.getEmail())
@@ -71,7 +72,7 @@ public class UserService {
             String authorities = extractAuthorities(authentication);
 
             // 토큰 생성 및 저장
-            return userTokenHelper.generateAndStoreToken(SERVER, email, authorities);
+            return userTokenHelper.generateAndStoreToken(TokenProvider.SERVER, email, authorities);
         } catch (BadCredentialsException e) {
             e.printStackTrace();
             throw new BadCredentialsException("사용자 정보가 잘못 되었습니다.");
@@ -81,14 +82,14 @@ public class UserService {
     @Transactional
     public void logout(HttpServletRequest request) {
         String email = invalidateToken(request.getHeader("Authorization").substring(7));
-
+        String oauth2Key = RedisKeyUtil.generateTokenKey(TokenType.AT, TokenProvider.OAUTH2, email);
         // 소셜 로그인 유저인경우 oauth2 access token 삭제
-        if(redisService.getValues("AT(oauth2):"+email) != null) {
-            String socialAccessToken = redisService.getValues("AT(oauth2):"+email);
+        if(redisService.getValues(oauth2Key) != null) {
+            String socialAccessToken = redisService.getValues(oauth2Key);
             kakaoLogout(socialAccessToken);
             log.info("kakao 로그아웃 성공");
 
-            redisService.deleteValues("AT(oauth2):"+email);
+            redisService.deleteValues(oauth2Key);
         }
 
     }
@@ -102,9 +103,10 @@ public class UserService {
         // redis에 로그아웃 처리한 access token 저장
         redisService.setValuesWithTimeout(token, "logout", expirationTime);
 
+        String redisTokenKey = RedisKeyUtil.generateTokenKey(TokenType.RT, TokenProvider.SERVER, email);
         // redis에 저장된 refresh token 삭제
-        if(redisService.getValues("RT("+SERVER+"):"+email) != null) {
-            redisService.deleteValues("RT("+SERVER+"):"+email);
+        if(redisService.getValues(redisTokenKey) != null) {
+            redisService.deleteValues(redisTokenKey);
         }
 
         return email;
@@ -153,25 +155,27 @@ public class UserService {
 
         User user = userRepository.findByEmail(email).orElse(null);
 
+        String redisOauth2Key = RedisKeyUtil.generateTokenKey(TokenType.AT, TokenProvider.OAUTH2, email);
         // oauth2 계정일 때
         if(user.getProvider() != null) {
-            String socialAccessToken = redisService.getValues("AT(oauth2):"+email);
+            String socialAccessToken = redisService.getValues(redisOauth2Key);
             //oauth2 access token 만료 시 재 로그인 해야함
             if(socialAccessToken == null) {
                 invalidateToken(token);
                 // TODO : 로그인 필요 에러 날려서 화면에서 로그아웃 시키고 자동으로 로그인 화면으로 넘어가도록 조치
             } else {
-                redisService.deleteValues("AT(oauth2):"+email);
+                redisService.deleteValues(redisOauth2Key);
                 log.info("oauth2 Access Token Redis에서 삭제 : " + socialAccessToken);
             }
             kakaoUnlink(socialAccessToken);
 
-            redisService.deleteValues("AT(oauth2):"+email);
+            redisService.deleteValues(redisOauth2Key);
             log.info("oauth2 Refresh Token Redis에서 삭제");
         }
 
-        if(redisService.getValues("RT("+SERVER+"):"+email) != null) {
-            redisService.deleteValues("RT("+SERVER+"):"+email);
+        String redisRefreshKey = RedisKeyUtil.generateTokenKey(TokenType.RT, TokenProvider.SERVER, email);
+        if(redisService.getValues(redisRefreshKey) != null) {
+            redisService.deleteValues(redisRefreshKey);
         }
 
         userRepository.deleteById(user.getId());
@@ -188,12 +192,12 @@ public class UserService {
     public JwtResponseDto reissueToken(TokenRefreshRequestDto request) throws Exception {
         jwtProvider.validateRefreshToken(request.refreshToken());
         String email = jwtProvider.getClaims(request.accessToken()).get("email").toString();
-        String redisRefreshToken = redisService.getValues("RT("+SERVER+"):"+email);
+        String redisRefreshToken = redisService.getValues(RedisKeyUtil.generateTokenKey(TokenType.RT, TokenProvider.SERVER, email));
 
         if (StringUtils.hasText(redisRefreshToken) && request.refreshToken().equals(redisRefreshToken)) {
             Authentication authentication = jwtProvider.getAuthentication(request.accessToken());
             String authorities = extractAuthorities(authentication);
-            JwtResponseDto responseDto = userTokenHelper.generateAndStoreToken(SERVER, email, authorities);
+            JwtResponseDto responseDto = userTokenHelper.generateAndStoreToken(TokenProvider.SERVER, email, authorities);
 
             return responseDto;
         } else throw new Exception("Refresh Token Not Found");

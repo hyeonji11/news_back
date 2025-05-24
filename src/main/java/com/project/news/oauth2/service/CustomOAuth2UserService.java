@@ -1,6 +1,10 @@
 package com.project.news.oauth2.service;
 
 import com.project.news.common.service.RedisService;
+import com.project.news.common.util.RedisKeyUtil;
+import com.project.news.oauth2.Entity.Provider;
+import com.project.news.oauth2.Entity.TokenProvider;
+import com.project.news.oauth2.Entity.TokenType;
 import com.project.news.oauth2.dto.*;
 import com.project.news.user.entity.User;
 import com.project.news.user.repository.UserRepository;
@@ -35,9 +39,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
         OAuth2Response oAuth2Response = null;
 
-        if (registrationId.equals("google")) {
+        if (registrationId.equals(Provider.GOOGLE.getValue())) {
             oAuth2Response = new GoogleResponse(oAuth2User.getAttributes());
-        } else if (registrationId.equals("kakao")) {
+        } else if (registrationId.equals(Provider.KAKAO.getValue())) {
             oAuth2Response = new KakaoResponse(oAuth2User.getAttributes());
         } else {
             throw new OAuth2AuthenticationException(new OAuth2Error("unsupported_social_login"), "허용되지 않은 소셜 로그인입니다: " + registrationId);
@@ -68,7 +72,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             log.info("가입하지 않은 계정 가입 완료 : {}", user.getEmail());
         }
 
-        redisService.setValuesWithTimeout("AT(oauth2):"+oAuth2Response.getEmail(), oauth2AccessToken, ACCESS_TOKEN_EXPIRATION);
+        redisService.setValuesWithTimeout(RedisKeyUtil.generateTokenKey(TokenType.AT, TokenProvider.OAUTH2, oAuth2Response.getEmail()), oauth2AccessToken, ACCESS_TOKEN_EXPIRATION);
         log.info("kakao access token 저장 key email : {}", oAuth2Response.getEmail());
 
         UserDto userDTO = UserDto.builder()
