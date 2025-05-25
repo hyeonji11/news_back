@@ -1,5 +1,7 @@
 package com.project.news.oauth2.dto;
 
+import com.project.news.oauth2.Entity.Provider;
+
 import java.util.Map;
 
 public class GoogleResponse implements OAuth2Response{
@@ -12,7 +14,7 @@ public class GoogleResponse implements OAuth2Response{
 
     @Override
     public String getProvider() {
-        return "google";
+        return Provider.GOOGLE.getValue();
     }
 
     @Override

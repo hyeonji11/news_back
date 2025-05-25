@@ -73,7 +73,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
 
         redisService.setValuesWithTimeout(RedisKeyUtil.generateTokenKey(TokenType.AT, TokenProvider.OAUTH2, oAuth2Response.getEmail()), oauth2AccessToken, ACCESS_TOKEN_EXPIRATION);
-        log.info("kakao access token 저장 key email : {}", oAuth2Response.getEmail());
+        log.info("oauth2 access token 저장 key email : {}", oAuth2Response.getEmail());
 
         UserDto userDTO = UserDto.builder()
                 .provider(socialName)

@@ -1,13 +1,15 @@
 package com.project.news.user.service;
 
-import com.project.news.common.entity.Response;
 import com.project.news.common.service.RedisService;
 import com.project.news.common.util.RedisKeyUtil;
 import com.project.news.jwt.JwtProvider;
 import com.project.news.jwt.dto.JwtResponseDto;
+import com.project.news.oauth2.Entity.Provider;
 import com.project.news.oauth2.Entity.TokenProvider;
 import com.project.news.oauth2.Entity.TokenType;
+import com.project.news.oauth2.client.GoogleClient;
 import com.project.news.oauth2.client.KakaoClient;
+import com.project.news.oauth2.dto.GoogleIdResponse;
 import com.project.news.oauth2.dto.KakaoIdResponse;
 import com.project.news.oauth2.service.UserTokenHelper;
 import com.project.news.user.dto.LoginRequestDto;
@@ -33,7 +35,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
-import java.util.Optional;
 
 import java.util.stream.Collectors;
 
@@ -50,6 +51,7 @@ public class UserService {
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final KakaoClient kakaoClient;
     private final UserTokenHelper userTokenHelper;
+    private final GoogleClient googleClient;
 
     @Transactional
     public Long signup(SignupRequestDto requestDto) {
@@ -86,8 +88,12 @@ public class UserService {
         // 소셜 로그인 유저인경우 oauth2 access token 삭제
         if(redisService.getValues(oauth2Key) != null) {
             String socialAccessToken = redisService.getValues(oauth2Key);
-            kakaoLogout(socialAccessToken);
-            log.info("kakao 로그아웃 성공");
+            User user = userRepository.findByEmail(email).get();
+
+            if(user.getProvider().equals(Provider.GOOGLE.getValue()))
+                googleLogout(socialAccessToken);
+            else if(user.getProvider().equals(Provider.KAKAO.getValue()))
+                kakaoLogout(socialAccessToken);
 
             redisService.deleteValues(oauth2Key);
         }
@@ -115,10 +121,19 @@ public class UserService {
     private void kakaoLogout(String accessToken) {
         try {
             KakaoIdResponse kakaoId = kakaoClient.logout("Bearer " + accessToken);
+            log.info("kakao 로그아웃 성공");
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
 
+    private void googleLogout(String accessToken) {
+        try {
+            GoogleIdResponse responseCode = googleClient.logout(accessToken);
+            log.info("google 로그아웃 성공");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -167,10 +182,14 @@ public class UserService {
                 redisService.deleteValues(redisOauth2Key);
                 log.info("oauth2 Access Token Redis에서 삭제 : " + socialAccessToken);
             }
-            kakaoUnlink(socialAccessToken);
+            if(user.getProvider().equals(Provider.GOOGLE.getValue())) {
+                googleUnlink(socialAccessToken);
+            } else if(user.getProvider().equals(Provider.KAKAO.getValue())) {
+                kakaoUnlink(socialAccessToken);
+            }
 
             redisService.deleteValues(redisOauth2Key);
-            log.info("oauth2 Refresh Token Redis에서 삭제");
+            log.info("oauth2 Refresh Token Redis에서 삭제 완료");
         }
 
         String redisRefreshKey = RedisKeyUtil.generateTokenKey(TokenType.RT, TokenProvider.SERVER, email);
@@ -186,7 +205,11 @@ public class UserService {
     public void kakaoUnlink(String accessToken) {
         KakaoIdResponse kakaoIdResponse = kakaoClient.unlink("Bearer " + accessToken);
         log.info("카카오 연결 끊기 성공 : ", kakaoIdResponse.id());
+    }
 
+    public void googleUnlink(String accessToken) {
+        GoogleIdResponse googleIdResponse = googleClient.unlink("token="+accessToken);
+        log.info("google 연결 끊기 성공 : {}", googleIdResponse.code());
     }
 
     public JwtResponseDto reissueToken(TokenRefreshRequestDto request) throws Exception {

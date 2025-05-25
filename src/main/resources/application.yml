@@ -22,12 +22,27 @@ spring:
     oauth2:
       client:
         provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/auth?prompt-consent
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v2/userinfo
+            user-name-attribute: id
           kakao:
             authorization_uri: https://kauth.kakao.com/oauth/authorize
             token_uri: https://kauth.kakao.com/oauth/token
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user_name_attribute: id
         registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: http://localhost:8080/login/oauth2/code/google
+            authorization-grant-type: authorization_code
+            client-authentication-method: client_secret_post
+            client-name: Google
+            scope:
+              - email
+              - profile
           kakao:
             client-id: ${KAKAO_CLIENT_ID}
             client-secret: ${KAKAO_CLIENT_SECRET}
@@ -43,5 +58,8 @@ feign:
   kakao:
     name: kakaoClient
     url: https://kapi.kakao.com
+  google:
+    name: googleClient
+    url: https://oauth2.googleapis.com
 jwt:
   secret: ${JWT_SECRET}
